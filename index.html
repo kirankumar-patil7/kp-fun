@@ -1,0 +1,548 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Slapshot Tic Tac Toe</title>
+<style>
+  :root{
+    --accent:#2b8aef;
+    --win:#2ecc71;
+    --lose:#ff6b6b;
+    --bg-start:#eef6f9;
+    --bg-end:#f7f3ff;
+    --card:#ffffff;
+    --muted:#6b7280;
+  }
+  html,body{height:100%}
+  body{
+    margin:0;
+    font-family:system-ui,Segoe UI,Roboto,Arial;
+    -webkit-font-smoothing:antialiased;
+    background:linear-gradient(180deg,var(--bg-start),var(--bg-end));
+    color:#0b1220;
+    padding:18px;
+    display:flex;
+    align-items:flex-start;
+    justify-content:center;
+  }
+
+  .wrap{
+    width:100%;
+    max-width:980px;
+    background:var(--card);
+    padding:18px;
+    border-radius:14px;
+    box-shadow:0 10px 30px rgba(12,18,30,.08);
+    box-sizing:border-box;
+  }
+
+  /* Header centered */
+  .header{
+    text-align:center;
+    margin-bottom:8px;
+  }
+  h1{
+    margin:0;
+    font-size:24px;
+    letter-spacing:0.2px;
+    font-weight:800;
+    color:#0b1220;
+  }
+  .subtitle{
+    margin:8px 0 0;
+    color:var(--muted);
+    font-size:15px;
+    font-weight:600;
+    text-align:center;
+  }
+
+  .flex{display:flex;gap:14px;align-items:flex-start}
+  .col{flex:1}
+  label{display:block;margin-top:10px;font-weight:700;color:#0b1220}
+  input[type="text"]{
+    width:100%;
+    padding:12px;
+    border-radius:10px;
+    border:1px solid #e6eefc;
+    font-size:16px;
+    box-sizing:border-box;
+  }
+  button{
+    padding:12px 14px;border-radius:10px;border:0;background:var(--accent);color:#fff;font-weight:700;cursor:pointer;font-size:16px;
+  }
+  button.secondary{background:#eef6ff;color:#0b1220}
+  .board{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:12px;justify-items:center}
+  .cell{
+    width:86px;height:86px;border-radius:12px;background:#f8fbff;display:flex;align-items:center;justify-content:center;font-size:36px;font-weight:800;color:#0b1220;cursor:pointer;border:1px solid #e6eefc;touch-action:manipulation;
+  }
+  .cell.disabled{cursor:not-allowed;opacity:.6}
+  .status{margin-top:12px;padding:10px;border-radius:10px;background:#fff8f0;border:1px solid #ffe6d6}
+  .photo-area{position:relative;width:320px;height:320px;border-radius:12px;background:#e9eef6;overflow:hidden;display:flex;align-items:center;justify-content:center}
+  .photo-area img{width:100%;height:100%;object-fit:cover;display:block}
+  .slap-emoji{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%) scale(1);font-size:120px;pointer-events:none;filter:drop-shadow(0 6px 18px rgba(0,0,0,.18))}
+  .suspense-emoji{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);font-size:48px;pointer-events:none;opacity:.95}
+  .emoji-large{font-size:84px;display:flex;align-items:center;justify-content:center;height:200px}
+  .caption{margin-top:8px;font-weight:800;color:#333}
+  .small{font-size:13px;color:var(--muted);margin-top:8px}
+  .controls{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap}
+  .controls button{flex:1;min-width:120px}
+  #ownerImgWrapper{display:none} /* hidden until win */
+
+  /* Mobile adjustments */
+  @media (max-width:640px){
+    body{padding:12px}
+    .flex{flex-direction:column}
+    .photo-area{width:100%;height:260px}
+    .cell{width:100%;height:72px;font-size:30px;border-radius:10px}
+    .board{grid-template-columns:repeat(3,1fr)}
+    .controls button{padding:12px;font-size:16px}
+    .wrap{padding:12px}
+    h1{font-size:20px}
+  }
+</style>
+</head>
+<body>
+<div class="wrap" role="main">
+  <div class="header">
+    <h1>Slapshot Tic Tac Toe</h1>
+    <div class="subtitle">Enter your name and play(Think 2wice before you Win😭)</div>
+  </div>
+
+  <div class="flex" style="margin-top:12px">
+    <div class="col" style="max-width:520px">
+      <label for="playerName">Your name</label>
+      <input id="playerName" type="text" inputmode="text" autocomplete="name" placeholder="Type your name" />
+
+      <div style="margin-top:12px">
+        <label>Game</label>
+        <div class="board" id="board" aria-label="Tic Tac Toe board"></div>
+
+        <div class="controls" style="margin-top:10px">
+          <button id="startBtn" aria-label="Start new round">Start New Round</button>
+          <button id="resetBtn" class="secondary" aria-label="Reset game">Reset Game</button>
+        </div>
+
+        <div id="status" class="status" style="display:none" aria-live="polite"></div>
+      </div>
+
+      <div style="margin-top:12px">
+        <label>Result Preview</label>
+        <div id="resultPreview" style="min-height:120px;border-radius:10px;padding:12px;background:#fbfbff;border:1px solid #eef6ff"></div>
+      </div>
+    </div>
+
+    <div style="width:360px;max-width:100%">
+      <label>Revealed on win✌️</label>
+      <div class="photo-area" id="ownerImgWrapper" aria-hidden="true">
+        <img id="ownerImg" src="owner.jpg" alt="developer photo" onerror="handleMissingImage()" />
+        <!-- suspense emoji shown while hidden photo is not yet revealed -->
+        <div class="suspense-emoji" id="suspenseEmoji" style="display:block">🤫</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  // Elements
+  const boardEl = document.getElementById('board');
+  const statusEl = document.getElementById('status');
+  const playerNameInput = document.getElementById('playerName');
+  const startBtn = document.getElementById('startBtn');
+  const resetBtn = document.getElementById('resetBtn');
+  const resultPreview = document.getElementById('resultPreview');
+  const ownerImgWrapper = document.getElementById('ownerImgWrapper');
+  const ownerImg = document.getElementById('ownerImg');
+  const suspenseEmoji = document.getElementById('suspenseEmoji');
+
+  // Game state
+  let board = Array(9).fill(null);
+  const playerSymbol = 'X';
+  const aiSymbol = 'O';
+  let turn = 'player';
+  let gameActive = false;
+
+  // Audio context and speech control
+  let audioCtx = null;
+  let activeSources = []; // track created sources to stop them on reset
+  let activeUtter = null; // track speech utterance for background phrases
+
+  function ensureAudioContext(){ if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)(); return audioCtx; }
+
+  function stopAllAudioAndSpeech(){
+    try {
+      // stop and disconnect any created sources
+      activeSources.forEach(s => {
+        try { s.stop && s.stop(); } catch(e){}
+        try { s.disconnect && s.disconnect(); } catch(e){}
+      });
+      activeSources = [];
+      if (audioCtx) { audioCtx.close(); audioCtx = null; }
+    } catch(e){}
+    try { if ('speechSynthesis' in window) window.speechSynthesis.cancel(); } catch(e){}
+    activeUtter = null;
+  }
+
+  // Render board
+  function renderBoard(){
+    boardEl.innerHTML = '';
+    for (let i=0;i<9;i++){
+      const c = document.createElement('button');
+      c.className = 'cell' + (gameActive ? '' : ' disabled');
+      c.dataset.index = i;
+      c.type = 'button';
+      c.textContent = board[i] || '';
+      c.addEventListener('click', onCellClick, {passive:true});
+      boardEl.appendChild(c);
+    }
+  }
+
+  function onCellClick(e){
+    if (!gameActive) return;
+    const idx = Number(e.currentTarget.dataset.index);
+    if (board[idx]) return;
+    if (turn !== 'player') return;
+    const name = sanitizeName(playerNameInput.value);
+    if (!name) { alert('Please enter your name first.'); return; }
+    board[idx] = playerSymbol;
+    turn = 'ai';
+    update();
+    setTimeout(aiMove, 420);
+  }
+
+  function aiMove(){
+    if (!gameActive) return;
+    const avail = board.map((v,i)=>v?null:i).filter(v=>v!==null);
+    if (avail.length===0) return;
+    const choice = findWinningMove(aiSymbol) || findWinningMove(playerSymbol) || avail[Math.floor(Math.random()*avail.length)];
+    board[choice] = aiSymbol;
+    turn = 'player';
+    update();
+  }
+
+  function findWinningMove(sym){
+    const lines = [[0,1,2],[3,4,5],[6,7,8],[0,3,6],[1,4,7],[2,5,8],[0,4,8],[2,4,6]];
+    for (const [a,b,c] of lines){
+      const vals = [board[a], board[b], board[c]];
+      if (vals.filter(v=>v===sym).length===2 && vals.includes(null)){
+        return [a,b,c].find(i=>board[i]===null);
+      }
+    }
+    return null;
+  }
+
+  function checkWinner(b){
+    const lines = [[0,1,2],[3,4,5],[6,7,8],[0,3,6],[1,4,7],[2,5,8],[0,4,8],[2,4,6]];
+    for (const [a,b1,c] of lines){
+      if (b[a] && b[a]===b[b1] && b[a]===b[c]) return b[a];
+    }
+    if (b.every(Boolean)) return 'draw';
+    return null;
+  }
+
+  function update(){
+    renderBoard();
+    const winner = checkWinner(board);
+    if (winner){
+      gameActive = false;
+      if (winner === playerSymbol) showWin();
+      else if (winner === aiSymbol) showLose();
+      else showDraw();
+    } else {
+      statusEl.style.display = 'block';
+      statusEl.textContent = (turn==='player') ? 'Your turn' : 'AI thinking...';
+    }
+  }
+
+  // Win: reveal photo, slap overlay, baby crying sound (~5s) + alternating background phrases
+  function showWin(){
+    const name = sanitizeName(playerNameInput.value);
+    statusEl.style.display = 'block';
+    statusEl.innerHTML = `<strong style="color:var(--win)">You win, ${escapeHtml(name)}!</strong>Opponent Photo revealed.😒`;
+    resultPreview.innerHTML = `<div style="color:var(--win);font-weight:800">WIN — Slap on kirankumar😭</div>`;
+    revealPhotoWithSlap();
+    // play 5s baby crying and speak alternating phrases concurrently
+    playBabyCryingSound(5);
+    speakAlternatingPhrasesDuringCrying(5, [
+      "Kiran’s having a meltdown!",
+      "Someone call the tiny ambulance!"
+    ]);
+  }
+
+  // Lose: big emoji + caption + spoken "loser" (~3.5s)
+  function showLose(){
+    const name = sanitizeName(playerNameInput.value);
+    statusEl.style.display = 'block';
+    statusEl.innerHTML = `<strong style="color:var(--lose)">You lost, ${escapeHtml(name)}.</strong>`;
+    const emoji = pickEmoji(name);
+    const caption = generateCaption(name);
+    resultPreview.innerHTML = `<div class="emoji-large">${emoji}</div><div class="caption">${escapeHtml(caption)}</div>`;
+    showBigEmojiOverlay(emoji, caption);
+    speakLoserPhrase(3.5);
+  }
+
+  function showDraw(){
+    statusEl.style.display = 'block';
+    statusEl.innerHTML = `<strong>It's a draw. Try again!</strong>`;
+    resultPreview.innerHTML = `<div style="font-weight:800">You missed your chance to slap the greatest person on the planet😁</div>`;
+  }
+
+  // Reveal photo and animate slap
+  function revealPhotoWithSlap(){
+    if (!ownerImg || ownerImg.naturalWidth === 0) {
+      alert('Developer photo not found. Place owner.jpg in the same folder as index.html.');
+      return;
+    }
+    // hide suspense emoji and reveal photo
+    suspenseEmoji.style.display = 'none';
+    ownerImgWrapper.style.display = 'block';
+    ownerImgWrapper.setAttribute('aria-hidden','false');
+    ownerImg.style.display = 'block';
+    const existing = ownerImgWrapper.querySelector('.slap-emoji');
+    if (existing) existing.remove();
+    const slap = document.createElement('div');
+    slap.className = 'slap-emoji';
+    slap.textContent = '👋😢';
+    ownerImgWrapper.appendChild(slap);
+    slap.animate([
+      { transform: 'translate(-50%,-50%) scale(0.6) rotate(-10deg)', opacity: 0 },
+      { transform: 'translate(-50%,-50%) scale(1.15) rotate(8deg)', opacity: 1 },
+      { transform: 'translate(-50%,-50%) scale(1) rotate(0deg)', opacity: 1 }
+    ], { duration: 700, easing: 'cubic-bezier(.2,.9,.2,1)' });
+    setTimeout(()=> { if (slap.parentNode) slap.remove(); }, 6000);
+  }
+
+  // Big emoji overlay
+  function showBigEmojiOverlay(emoji, caption){
+    const existing = document.getElementById('bigEmojiOverlay');
+    if (existing) existing.remove();
+    const overlay = document.createElement('div');
+    overlay.id = 'bigEmojiOverlay';
+    overlay.style.position = 'fixed';
+    overlay.style.left = '50%';
+    overlay.style.top = '50%';
+    overlay.style.transform = 'translate(-50%,-50%)';
+    overlay.style.zIndex = 9999;
+    overlay.style.background = 'rgba(255,255,255,0.98)';
+    overlay.style.border = '2px solid #eee';
+    overlay.style.borderRadius = '12px';
+    overlay.style.padding = '18px';
+    overlay.style.boxShadow = '0 10px 40px rgba(10,10,20,.12)';
+    overlay.innerHTML = `<div style="font-size:84px;text-align:center">${emoji}</div><div style="text-align:center;font-weight:800;margin-top:8px">${escapeHtml(caption)}</div><div style="text-align:center;margin-top:12px"><button id="closeOverlay">Close</button></div>`;
+    document.body.appendChild(overlay);
+    document.getElementById('closeOverlay').addEventListener('click', ()=> overlay.remove());
+  }
+
+  // --- Baby crying sound synthesis (layered) ---
+  function playBabyCryingSound(durationSeconds = 5){
+    const ctx = ensureAudioContext();
+    const now = ctx.currentTime;
+
+    const wail = ctx.createOscillator();
+    wail.type = 'sine';
+    const wailGain = ctx.createGain();
+    wailGain.gain.setValueAtTime(0.0001, now);
+    wailGain.gain.exponentialRampToValueAtTime(0.08, now + 0.06);
+    wailGain.gain.exponentialRampToValueAtTime(0.0001, now + durationSeconds);
+
+    const lfo = ctx.createOscillator();
+    lfo.type = 'sine';
+    lfo.frequency.setValueAtTime(2.2, now);
+    const lfoGain = ctx.createGain();
+    lfoGain.gain.setValueAtTime(18, now);
+    lfo.connect(lfoGain);
+    lfoGain.connect(wail.frequency);
+
+    wail.frequency.setValueAtTime(420, now);
+    wail.connect(wailGain);
+    wailGain.connect(ctx.destination);
+
+    const cry = ctx.createOscillator();
+    cry.type = 'sawtooth';
+    cry.frequency.setValueAtTime(900, now);
+    cry.frequency.exponentialRampToValueAtTime(320, now + durationSeconds);
+    const cryGain = ctx.createGain();
+    cryGain.gain.setValueAtTime(0.0001, now);
+    cryGain.gain.exponentialRampToValueAtTime(0.06, now + 0.06);
+    cryGain.gain.exponentialRampToValueAtTime(0.0001, now + durationSeconds);
+    cry.connect(cryGain);
+    cryGain.connect(ctx.destination);
+
+    const bufferSize = Math.floor(ctx.sampleRate * durationSeconds);
+    const noiseBuffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
+    const output = noiseBuffer.getChannelData(0);
+    for (let i = 0; i < bufferSize; i++) output[i] = (Math.random() * 2 - 1) * 0.6;
+    const noise = ctx.createBufferSource();
+    noise.buffer = noiseBuffer;
+    const noiseFilter = ctx.createBiquadFilter();
+    noiseFilter.type = 'bandpass';
+    noiseFilter.frequency.setValueAtTime(1200, now);
+    noiseFilter.Q.setValueAtTime(0.8, now);
+    const noiseGain = ctx.createGain();
+    noiseGain.gain.setValueAtTime(0.0001, now);
+    noiseGain.gain.exponentialRampToValueAtTime(0.12, now + 0.06);
+    noiseGain.gain.exponentialRampToValueAtTime(0.0001, now + durationSeconds);
+    noise.connect(noiseFilter);
+    noiseFilter.connect(noiseGain);
+    noiseGain.connect(ctx.destination);
+
+    const ampLFO = ctx.createOscillator();
+    ampLFO.type = 'sine';
+    ampLFO.frequency.setValueAtTime(1.6, now);
+    const ampGain = ctx.createGain();
+    ampGain.gain.setValueAtTime(0.5, now);
+    ampLFO.connect(ampGain);
+
+    const wailModGain = ctx.createGain();
+    wailModGain.gain.setValueAtTime(1.0, now);
+    wailGain.disconnect();
+    wailGain.connect(wailModGain);
+    wailModGain.connect(ctx.destination);
+
+    const cryModGain = ctx.createGain();
+    cryModGain.gain.setValueAtTime(1.0, now);
+    cryGain.disconnect();
+    cryGain.connect(cryModGain);
+    cryModGain.connect(ctx.destination);
+
+    const ampDepth = ctx.createGain();
+    ampDepth.gain.setValueAtTime(0.45, now);
+    ampLFO.connect(ampDepth);
+    ampDepth.connect(wailModGain.gain);
+    ampDepth.connect(cryModGain.gain);
+
+    activeSources.push(wail, cry, noise, lfo, ampLFO);
+    try { wail.start(now); cry.start(now); noise.start(now); lfo.start(now); ampLFO.start(now); } catch(e){}
+
+    setTimeout(()=> {
+      try {
+        [wail, cry, noise, lfo, ampLFO].forEach(s => { try { s.stop && s.stop(); } catch(e){} });
+      } catch(e){}
+      setTimeout(()=> { try { if (audioCtx) { audioCtx.close(); audioCtx = null; activeSources = []; } } catch(e){} }, 300);
+    }, durationSeconds * 1000);
+  }
+
+  // Speak alternating phrases for durationSeconds
+  function speakAlternatingPhrasesDuringCrying(durationSeconds = 5, phrases = []) {
+    if (!('speechSynthesis' in window) || !phrases || phrases.length === 0) return;
+    const wordsPerSecond = 2.0;
+    const approxWordsNeeded = Math.max(1, Math.floor(durationSeconds * wordsPerSecond));
+    const built = [];
+    let i = 0;
+    while (built.join(' ').split(' ').length < approxWordsNeeded) {
+      built.push(phrases[i % phrases.length]);
+      i++;
+    }
+    const text = built.join('. ');
+    const utter = new SpeechSynthesisUtterance(text);
+    utter.rate = 0.95;
+    utter.pitch = 1.0;
+    activeUtter = utter;
+    window.speechSynthesis.cancel();
+    window.speechSynthesis.speak(utter);
+    setTimeout(()=> {
+      try { window.speechSynthesis.cancel(); } catch(e){}
+      activeUtter = null;
+    }, durationSeconds * 1000 + 200);
+  }
+
+  // Speak repeated "loser" phrase (~durationSeconds)
+  function speakLoserPhrase(durationSeconds = 3.5){
+    if (!('speechSynthesis' in window)) { playLoserTone(durationSeconds); return; }
+    const name = sanitizeName(playerNameInput.value) || 'friend';
+    const basePhrase = `Loser ${name}`;
+    const repeats = Math.max(1, Math.floor(durationSeconds * 2.2));
+    const utter = new SpeechSynthesisUtterance(Array(repeats).fill(basePhrase).join('. '));
+    utter.rate = 0.95;
+    utter.pitch = 0.9;
+    window.speechSynthesis.cancel();
+    window.speechSynthesis.speak(utter);
+    setTimeout(()=> window.speechSynthesis.cancel(), durationSeconds * 1000 + 200);
+  }
+
+  function playLoserTone(durationSeconds = 3.5){
+    const ctx = ensureAudioContext();
+    const now = ctx.currentTime;
+    const o1 = ctx.createOscillator();
+    o1.type = 'sawtooth';
+    o1.frequency.setValueAtTime(440, now);
+    o1.frequency.exponentialRampToValueAtTime(160, now + durationSeconds);
+    const g = ctx.createGain();
+    g.gain.setValueAtTime(0.0001, now);
+    g.gain.exponentialRampToValueAtTime(0.18, now + 0.02);
+    g.gain.exponentialRampToValueAtTime(0.0001, now + durationSeconds);
+    o1.connect(g);
+    g.connect(ctx.destination);
+    activeSources.push(o1);
+    try { o1.start(now); o1.stop(now + durationSeconds); } catch(e){}
+    setTimeout(()=> { try { if (audioCtx) { audioCtx.close(); audioCtx = null; activeSources = []; } } catch(e){} }, (durationSeconds+0.2)*1000);
+  }
+
+  // Helpers
+  function sanitizeName(s){ return (s||'').trim().replace(/</g,'').replace(/>/g,''); }
+  function escapeHtml(s){ return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+  function hashCode(s){ let h=0; for(let i=0;i<s.length;i++){ h=((h<<5)-h)+s.charCodeAt(i); h|=0;} return h; }
+  function pickEmoji(name){ const list = ['😜','😂','🤡','😅','😎','🥳','🤖','🙃']; return list[Math.abs(hashCode(name)) % list.length]; }
+  function generateCaption(name){ const seeds = ['What a move','Nice try','Legend in the making','Epic fail','Almost had it','Next time champ']; const idx = Math.abs(hashCode(name)) % seeds.length; return `${seeds[idx]} — ${name}`; }
+
+  // UI controls
+  startBtn.addEventListener('click', ()=>{
+    ensureAudioContext();
+    const name = sanitizeName(playerNameInput.value);
+    if (!name) { alert('Enter your name first'); return; }
+    board = Array(9).fill(null);
+    gameActive = true;
+    turn = 'player';
+    statusEl.style.display = 'block';
+    statusEl.textContent = 'Game started. Your turn.';
+    resultPreview.innerHTML = '';
+    renderBoard();
+  });
+
+  resetBtn.addEventListener('click', ()=>{
+    // 1) Reset game state and UI
+    board = Array(9).fill(null);
+    gameActive = false;
+    statusEl.style.display = 'none';
+    resultPreview.innerHTML = '';
+    renderBoard();
+
+    // 2) Hide developer photo wrapper and mark it hidden for accessibility
+    ownerImgWrapper.style.display = 'none';
+    ownerImgWrapper.setAttribute('aria-hidden', 'true');
+
+    // 3) Remove any slap overlay or other children added dynamically
+    const slap = ownerImgWrapper.querySelector('.slap-emoji');
+    if (slap) slap.remove();
+
+    // 4) Restore original <img> if missing (in case of earlier error handler)
+    if (!ownerImgWrapper.querySelector('#ownerImg')) {
+      ownerImgWrapper.innerHTML = '<img id="ownerImg" src="owner.jpg" alt="developer photo" onerror="handleMissingImage()" /><div class="suspense-emoji" id="suspenseEmoji">🤫</div>';
+    } else {
+      const img = ownerImgWrapper.querySelector('#ownerImg');
+      if (img) img.style.display = 'none';
+      // show suspense emoji again
+      const se = ownerImgWrapper.querySelector('#suspenseEmoji');
+      if (se) se.style.display = 'block';
+    }
+
+    // 5) Remove any global overlays (big emoji)
+    const big = document.getElementById('bigEmojiOverlay');
+    if (big) big.remove();
+
+    // 6) Stop any playing audio or speech immediately
+    stopAllAudioAndSpeech();
+  });
+
+  // Handle missing static image
+  function handleMissingImage(){
+    ownerImgWrapper.style.display = 'block';
+    ownerImg.style.display = 'none';
+    ownerImgWrapper.innerHTML = '<div style="color:#666;padding:12px;text-align:center">developer photo not found<br><small>Place owner.jpg in the same folder as index.html</small></div>';
+  }
+
+  // initial render
+  renderBoard();
+</script>
+</body>
+</html>
